@@ -82,4 +82,12 @@ def delete_post(id):
 
 @app.route("/posts/<int:id>", methods=['PUT'])
 def updatePost(id):
-    print("updated post")
+    post_data = Post(**request.get_json())
+    updated_post = post_data.dict()
+    updated_post['id']=id
+    for i, post in enumerate(all_posts):
+        if post['id'] == id:
+            all_posts[i] = updated_post
+            return all_posts
+    return {"message": f"post with id:{id} was not found"}, HTTPStatus.NOT_FOUND
+
