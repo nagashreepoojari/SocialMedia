@@ -1,3 +1,5 @@
+import json
+
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -11,5 +13,14 @@ class Post(db.Model):
     published = db.Column(db.Boolean, server_default='TRUE', nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp(), nullable=False)
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "content": self.content,
+            "published": self.published,
+            "created_at": self.created_at
+        }
+
     def __repr__(self):
-        return f'<Post {self.title}>'
+        return json.dumps(self.to_dict())
