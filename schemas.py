@@ -24,3 +24,26 @@ class PostResponse(PostBase):
     class Config:
         orm_mode = True
         from_attributes = True
+
+
+class UserBase(BaseModel):
+    email: str
+    password: str
+
+
+class UserCreate(UserBase):
+    pass
+
+
+class UserUpdate(UserBase):
+    pass
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
