@@ -24,3 +24,20 @@ class Post(db.Model):
 
     def __repr__(self):
         return json.dumps(self.to_dict())
+
+
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(50), nullable=False, unique=True)
+    password = db.Column(db.String(10), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp(), nullable=False)
+
+    def to_dict(self):
+        return {
+            "email": self.email,
+            "created_at": self.created_at
+        }
+
+    def __repr__(self):
+        return json.dumps(self.to_dict())
