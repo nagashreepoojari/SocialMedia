@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .database import app
 from .models import db, Post
-
+from . import schemas
 with app.app_context():
     db.create_all()
 
@@ -22,7 +22,7 @@ def hello_world():
 def get_all_posts():
     try:
         posts = Post.query.all()
-        result = [post.to_dict() for post in posts]
+        result = [schemas.PostResponse.from_orm(post).dict() for post in posts]
         return jsonify(result), HTTPStatus.OK
     except SQLAlchemyError as e:
         # Handle database-related errors
@@ -39,16 +39,18 @@ def get_all_posts():
 def create_post():
     try:
         data = request.get_json()
-        new_post = Post(
+        post_data = schemas.PostCreate(**data)
+        new_post_data = Post(
             id=randrange(0, 100000),
-            title=data.get('title'),
-            content=data.get('content'),
-            published=data.get('published')  # Default to True if not provided
+            title=post_data.title,
+            content=post_data.content,
+            published=post_data.published
         )
 
-        db.session.add(new_post)
+        db.session.add(new_post_data)
         db.session.commit()
-        return jsonify(new_post.to_dict()), HTTPStatus.CREATED
+        new_post = schemas.PostResponse.from_orm(new_post_data).dict()
+        return jsonify(new_post), HTTPStatus.CREATED
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "message": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
@@ -56,10 +58,11 @@ def create_post():
 @app.route("/posts/<int:id>", methods=['GET'])
 def read_post(id):
     try:
-        post = Post.query.get(id)
-        if post is None:
+        post_data = Post.query.get(id)
+        if post_data is None:
             return jsonify({"message": f"Post with id:{id} was not found"}), HTTPStatus.NOT_FOUND
-        return jsonify(post.to_dict()), HTTPStatus.OK
+        post = schemas.PostResponse.from_orm(post_data).dict()
+        return jsonify(post), HTTPStatus.OK
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "message": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
@@ -81,13 +84,14 @@ def delete_post(id):
 def update_post(id):
     try:
         data = request.get_json()
+        post_data = schemas.PostUpdate(**data)
         post = Post.query.get(id)
         if post is None:
             return jsonify({"message": f"Post with id:{id} was not found"}), HTTPStatus.NOT_FOUND
 
-        post.title = data.get('title', post.title)
-        post.content = data.get('content', post.content)
-        post.published = data.get('published', post.published)
+        post.title = post_data.title
+        post.content = post_data.content
+        post.published = post_data.published
 
         db.session.commit()
         return jsonify(post.to_dict()), HTTPStatus.OK
