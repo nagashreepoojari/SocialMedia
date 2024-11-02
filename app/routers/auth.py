@@ -1,33 +1,36 @@
-from datetime import datetime, timedelta
+from http import HTTPStatus
 
-import jwt
+from flask import Blueprint, request, jsonify
 
-# secret key
-# algorith
-# expiration time
-
-
-# import secrets
-#
-# def generate_secret_key(length=50):
-#     return secrets.token_hex(length)
-# # Example usage
-# secret_key = generate_secret_key(32)
-# print(secret_key)
+from app.models import db, User
+from ..database import app
+from ..utils import check_password
+from app import schemas
+from ..oauth2 import create_access_token
+auth_bp = Blueprint('auth_bp', __name__)
+app.config['SECRET_KEY'] = 'your secret key'
 
 
-SECRET_KEY = "1ca9cd62164baa7d5c8a28970b10232e0c6a7817fea19ba6f9c4b03492b0137d"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+@auth_bp.route("/login", methods=['POST'])
+def login():
+    try:
+        login_data = schemas.Login(**request.get_json())
+        print("Login data:", login_data)
 
+        user_data = User.query.filter_by(email=login_data.email).first()
+        if user_data is None:
+            return jsonify({"message": "Invalid credentials"}), HTTPStatus.NOT_FOUND
+        print("password in database", user_data.password)
+        print("input password", login_data.password)
 
-def create_access_token(data: dict):
-    to_encode = data.copy()
+        if not check_password(user_data.password, login_data.password):
+            print("Password is incorrect")
+            return jsonify({"message": "Invalid credentials"}), HTTPStatus.UNAUTHORIZED
 
-    expire = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+        # create jwt token and send back
+        access_token = create_access_token(data={"user_id": user_data.id})
+        return jsonify({"access_token": access_token, "token_type": "bearer"}), HTTPStatus.OK
 
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-    return encoded_jwt
-
+    except Exception as e:
+        print("Exception occurred:", str(e))
+        return jsonify({"error": "An unexpected error occurred", "message": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
