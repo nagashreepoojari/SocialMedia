@@ -1,3 +1,4 @@
+from functools import wraps
 from http import HTTPStatus
 from http.client import HTTPException
 from random import randrange
@@ -7,8 +8,29 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app import schemas
 from app.models import Post, db
+from ..oauth2 import verify_access_token, CredentialException
 
 posts_bp = Blueprint('posts_bp', __name__)
+
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        if not token:
+            return jsonify({'error': 'Not authenticated', 'message': 'Token is missing !!'}), HTTPStatus.UNAUTHORIZED
+
+        try:
+            current_user = verify_access_token(token)
+        except CredentialException as e:
+            return jsonify({'error': 'Not authenticated', 'message': str(e)}), HTTPStatus.UNAUTHORIZED
+
+        return f(current_user, *args, **kwargs)
+
+    return decorated
 
 
 @posts_bp.route("/", methods=['GET'])
@@ -38,7 +60,8 @@ def get_all_posts():
 
 
 @posts_bp.route("/", methods=['POST'])
-def create_post():
+@token_required
+def create_post(current_user):
     """
         Create a New Post
         ---
@@ -48,6 +71,9 @@ def create_post():
           500:
             description: Database error occurred
     """
+    if current_user:
+        print("current logged in user is:")
+        print(current_user.to_dict())
     try:
         data = request.get_json()
         post_data = schemas.PostCreate(**data)
