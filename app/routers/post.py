@@ -73,7 +73,7 @@ def create_post(current_user):
     """
     if current_user:
         print("current logged in user is:")
-        print(current_user.to_dict())
+        print(current_user)
     try:
         data = request.get_json()
         post_data = schemas.PostCreate(**data)
@@ -81,7 +81,8 @@ def create_post(current_user):
             id=randrange(0, 100000),
             title=post_data.title,
             content=post_data.content,
-            published=post_data.published
+            published=post_data.published,
+            owner_id=current_user.get('user_id')
         )
 
         db.session.add(new_post_data)
@@ -119,7 +120,8 @@ def read_post(id):
 
 
 @posts_bp.route("/<int:id>", methods=['DELETE'])
-def delete_post(id):
+@token_required
+def delete_post(current_user,id):
     """
         Delete a Post
         ---
@@ -135,10 +137,15 @@ def delete_post(id):
           404:
             description: Post not found
     """
+    if current_user:
+        print("current logged in user is:")
+        print(current_user)
     try:
         post = Post.query.get(id)
         if post is None:
             return jsonify({"message": f"Post with id:{id} was not found"}), HTTPStatus.NOT_FOUND
+        if post.owner_id != current_user.get('user_id'):
+            return jsonify({"message": f"Not authorized"}), HTTPStatus.FORBIDDEN
         db.session.delete(post)
         db.session.commit()
         return jsonify({"message": f"Post with id:{id} was deleted"}), HTTPStatus.NO_CONTENT
@@ -147,7 +154,8 @@ def delete_post(id):
 
 
 @posts_bp.route("/<int:id>", methods=['PUT'])
-def update_post(id):
+@token_required
+def update_post(current_user,id):
     """
         Update a Post
         ---
@@ -168,13 +176,17 @@ def update_post(id):
           404:
             description: Post not found
     """
+    if current_user:
+        print("current logged in user is:")
+        print(current_user.to_dict())
     try:
         data = request.get_json()
         post_data = schemas.PostUpdate(**data)
         post = Post.query.get(id)
         if post is None:
             return jsonify({"message": f"Post with id:{id} was not found"}), HTTPStatus.NOT_FOUND
-
+        if post.owner_id != current_user.get('user_id'):
+            return jsonify({"message": f"Not authorized"}), HTTPStatus.FORBIDDEN
         post.title = post_data.title
         post.content = post_data.content
         post.published = post_data.published
