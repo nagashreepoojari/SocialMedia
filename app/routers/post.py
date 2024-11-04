@@ -4,6 +4,7 @@ from http.client import HTTPException
 from random import randrange
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import schemas
@@ -44,8 +45,18 @@ def get_all_posts():
           500:
             description: Database error occurred
     """
+    limit_value = request.args.get("limit", type=int)
+    skip_value = request.args.get("skip", type=int)
+    search_val = request.args.get("search", type=str)
+
+    query = Post.query
+    if search_val:
+        query = query.filter(Post.title.contains(search_val))
+    if limit_value:
+        query = query.limit(limit_value)
+    if skip_value: query = query.offset(skip_value)
     try:
-        posts = Post.query.all()
+        posts = query.all()
         result = [schemas.PostResponse.from_orm(post).dict() for post in posts]
         return jsonify(result), HTTPStatus.OK
     except SQLAlchemyError as e:
