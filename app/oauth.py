@@ -3,7 +3,8 @@ from http.client import HTTPException
 
 import jwt
 from .models import User
-from .schemas import UserBase
+from .config import settings
+from .schemas import UserBase, UserResponse
 
 # secret key
 # algorith
@@ -19,9 +20,9 @@ from .schemas import UserBase
 # print(secret_key)
 
 
-SECRET_KEY = "1ca9cd62164baa7d5c8a28970b10232e0c6a7817fea19ba6f9c4b03492b0137d"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 
 def create_access_token(data: dict):
@@ -47,8 +48,7 @@ def verify_access_token(token: str):
         id = payload.get('user_id')
         if id is None:
             raise CredentialException()
-        current_user = User.query.get(id)
-        return current_user
+        return payload
     except jwt.ExpiredSignatureError:
         raise CredentialException("Token has expired")
     except jwt.InvalidTokenError:
@@ -58,4 +58,8 @@ def verify_access_token(token: str):
 
 
 def get_current_user(token):
-    return verify_access_token(token)
+    token = verify_access_token(token)
+    current_user = User.query.get(token.get('user_id'))
+
+    return current_user
+
