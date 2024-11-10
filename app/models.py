@@ -32,7 +32,6 @@ class Post(db.Model):
     published = db.Column(db.Boolean, server_default='TRUE', nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp(), nullable=False)
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    votes = db.Column(db.Integer, server_default='0')
     owner = relationship(User)
 
     def to_dict(self):
@@ -42,8 +41,7 @@ class Post(db.Model):
             "content": self.content,
             "published": self.published,
             "created_at": self.created_at,
-            "owner_id": self.owner_id,
-            "votes": self.votes
+            "owner_id": self.owner_id
         }
 
     def __repr__(self):
