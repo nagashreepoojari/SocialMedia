@@ -16,9 +16,7 @@ class UserUpdate(UserBase):
     pass
 
 
-class UserResponse(BaseModel):
-    id: int
-    email: str
+class UserResponse(UserBase):
     created_at: datetime
 
     class Config:
@@ -43,9 +41,16 @@ class PostResponse(PostBase):
     id: int
     created_at: datetime
     owner_id: int
-    votes: int
 
     # owner: UserBase
+
+    class Config:
+        from_attributes = True
+
+
+class PostOut(BaseModel):
+    Post: PostResponse
+    votes: int
 
     class Config:
         from_attributes = True
