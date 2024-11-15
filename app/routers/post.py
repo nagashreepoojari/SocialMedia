@@ -4,11 +4,11 @@ from http.client import HTTPException
 from random import randrange
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import schemas
-from app.models import Post, db
+from app.models import Post, db, Vote
 from ..oauth2 import verify_access_token, CredentialException
 
 posts_bp = Blueprint('posts_bp', __name__)
@@ -49,15 +49,22 @@ def get_all_posts():
     skip_value = request.args.get("skip", type=int)
     search_val = request.args.get("search", type=str)
 
-    query = Post.query
+    query = db.session.query(
+        Post,
+        func.count(Vote.post_id).label('votes')
+    ).outerjoin(Vote, Vote.post_id == Post.id).group_by(Post.id, Post.title)
+    print(query)
+
     if search_val:
         query = query.filter(Post.title.contains(search_val))
     if limit_value:
         query = query.limit(limit_value)
-    if skip_value: query = query.offset(skip_value)
+    if skip_value:
+        query = query.offset(skip_value)
+
     try:
         posts = query.all()
-        result = [schemas.PostResponse.from_orm(post).dict() for post in posts]
+        result = [schemas.PostOut.from_orm(post).dict() for post in posts]
         return jsonify(result), HTTPStatus.OK
     except SQLAlchemyError as e:
         # Handle database-related errors
@@ -85,11 +92,12 @@ def create_post(current_user):
     if current_user:
         print("current logged in user is:")
         print(current_user)
+
     try:
         data = request.get_json()
         post_data = schemas.PostCreate(**data)
         new_post_data = Post(
-            id=randrange(0, 100000),
+            id=randrange(0, 100),
             title=post_data.title,
             content=post_data.content,
             published=post_data.published,
@@ -120,19 +128,26 @@ def read_post(id):
            description: Post found
          404:
     """
+
+    query = db.session.query(
+        Post,
+        func.count(Vote.post_id).label('votes')
+    ).outerjoin(Vote, Vote.post_id == Post.id).group_by(Post.id, Post.title)
+    print(query)
+
     try:
-        post_data = Post.query.get(id)
+        post_data = query.filter(Post.id == id).first()
         if post_data is None:
             return jsonify({"message": f"Post with id:{id} was not found"}), HTTPStatus.NOT_FOUND
-        post = schemas.PostResponse.from_orm(post_data).dict()
-        return jsonify(post), HTTPStatus.OK
+        result = schemas.PostOut.from_orm(post_data).dict()
+        return jsonify(result), HTTPStatus.OK
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "message": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @posts_bp.route("/<int:id>", methods=['DELETE'])
 @token_required
-def delete_post(current_user,id):
+def delete_post(current_user, id):
     """
         Delete a Post
         ---
@@ -166,7 +181,7 @@ def delete_post(current_user,id):
 
 @posts_bp.route("/<int:id>", methods=['PUT'])
 @token_required
-def update_post(current_user,id):
+def update_post(current_user, id):
     """
         Update a Post
         ---
